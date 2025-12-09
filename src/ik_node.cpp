@@ -26,6 +26,7 @@ private:
         double y = msg->y;
         double phi = msg->theta;
 
+        // try default branch (+1); could try branch -1 if fail
         auto sol = kin_.computeIK(x, y, phi, +1);
         if (!sol) {
             RCLCPP_WARN(get_logger(), "IK unreachable for x=%.6f y=%.6f phi=%.6f; trying other branch", x, y, phi);
@@ -37,6 +38,7 @@ private:
         }
 
         auto arr = *sol;
+        RCLCPP_INFO(get_logger(), "IK solution: th1=%.6f th2=%.6f th3=%.6f", arr[0], arr[1], arr[2]);
     }
 
     Planar3R kin_;

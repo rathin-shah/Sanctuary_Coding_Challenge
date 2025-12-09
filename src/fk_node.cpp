@@ -56,6 +56,7 @@ public:
                 fk_mode_.c_str());
             throw std::runtime_error("Invalid fk_mode");
         }
+
         pub_ = create_publisher<geometry_msgs::msg::Pose2D>("ee_pose", 10);
         timer_ = create_wall_timer(100ms, std::bind(&FKNode::compute_and_publish, this));
     }
@@ -72,24 +73,28 @@ private:
             msg.x = p.x;
             msg.y = p.y;
             msg.theta = p.phi;
+        }
         else {  // kdl mode
 
             auto p = kdl_fk_->compute(th1_, th2_, th3_);
             msg.x = p.x;
             msg.y = p.y;
             msg.theta = -1 * p.phi;
+
         }
 
         pub_->publish(msg);
     }
 
-
+    
     std::string fk_mode_;
     double th1_, th2_, th3_;
 
+    
     std::unique_ptr<Planar3R> analytical_fk_;
     std::unique_ptr<KDL_FK>    kdl_fk_;
 
+    
     rclcpp::Publisher<geometry_msgs::msg::Pose2D>::SharedPtr pub_;
     rclcpp::TimerBase::SharedPtr timer_;
 };
