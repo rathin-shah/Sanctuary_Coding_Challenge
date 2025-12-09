@@ -1,103 +1,189 @@
-===============================================
-Design Notes for Planar 3R Kinematics Solution
-===============================================
+==============================================
+Updated Design Notes for Planar 3R Kinematics
+==============================================
 
-This file summarizes the design process, assumptions, 
-considerations, and choices made while implementing 
-the planar 3-link manipulator tasks.
+This file summarizes the complete design process,
+assumptions, considerations, and architectural choices
+made while implementing the planar 3-link manipulator
+solution, including the extended tasks such as KDL FK
+integration, URDF support, configuration files, and 
+expanded unit testing.           :contentReference[oaicite:1]{index=1}
 
 -----------------------------------------------
 1. Assumptions
 -----------------------------------------------
 • The robot is a 3-link planar RRR manipulator (PDF page 3).
 • All joints rotate about the z-axis (2D planar model).
-• Link lengths L1, L2, L3 default to 0.3, 0.3, 0.1 m.
-• No joint limits were specified; IK returns any feasible solution.
-• Only analytic kinematics (no external libraries) were required.
+• Default physical parameters:
+    L1 = 0.3 m, L2 = 0.3 m, L3 = 0.1 m.
+• IK returns feasible joint angles for reachable poses.
+• URDF describes a strictly planar chain with revolute joints.
+• KDL uses the URDF model for FK; analytical FK uses closed-form equations.
 
 -----------------------------------------------
-2. Object-Oriented Model
+2. Object-Oriented Kinematic Model
 -----------------------------------------------
-To satisfy Task 1, a single class `Planar3R` was created:
-• Stores link lengths (modifiable at runtime).
-• Provides FK function returning (x, y, phi).
-• Provides analytic IK based on geometric/wrist reduction method.
-• Encapsulates angle normalization and branch handling.
+A single class `Planar3R` was developed to satisfy task requirements:
+• Stores link lengths (modifiable via constructor).
+• Provides:
+    - computeFK(th1, th2, th3)
+    - computeIK(x, y, phi, branch)
+• Handles numerical stability (clamping, angle wrapping).
+• Branch parameter selects elbow-up (+1) or elbow-down (-1).
+• Implemented as a header-only library for portability.
 
-The class is header-only for portability and simplicity.
-
------------------------------------------------
-3. Forward Kinematics (Task 2)
------------------------------------------------
-FK is implemented using:
-  x = L1 cos θ1 + L2 cos(θ1+θ2) + L3 cos(θ1+θ2+θ3)
-  y = L1 sin θ1 + L2 sin(θ1+θ2) + L3 sin(θ1+θ2+θ3)
-  φ = θ1 + θ2 + θ3
-
-Chosen because:
-• Closed-form, minimal computation
-• No dependencies, easy to unit test
-• Matches planar kinematic chain from PDF (page 3)
+This class forms the analytic baseline implementation.
 
 -----------------------------------------------
-4. Analytic Inverse Kinematics (Task 3)
+3. Forward Kinematics — Two Implementations
 -----------------------------------------------
-IK is implemented using:
-• Wrist position reduction:
-      xw = x - L3 cos φ
-      yw = y - L3 sin φ
-• Two-link IK using cosine law:
-      cosθ2 = (r² - L1² - L2²)/(2L1L2)
-• atan2-based solution for θ1 via geometric approach
-• θ3 retrieved from φ - θ1 - θ2
+
+3.1 Analytic FK (closed form)
+-----------------------------
+Given θ1, θ2, θ3:
+    x = L1 cos θ1 + L2 cos(θ1+θ2) + L3 cos(θ1+θ2+θ3)
+    y = L1 sin θ1 + L2 sin(θ1+θ2) + L3 sin(θ1+θ2+θ3)
+    φ = θ1 + θ2 + θ3
+
+Motivation:
+• Zero dependencies
+• Fast, deterministic
+• Mirrors the model from the challenge specification
+
+3.2 KDL-based FK (bonus implementation)
+---------------------------------------
+A URDF model was created for the 3R planar arm.  
+The KDL pipeline is:
+1. Load URDF file → urdf::Model
+2. Convert to KDL::Tree via kdl_parser
+3. Extract KDL::Chain from base_link → ee_link
+4. Evaluate FK using KDL::ChainFkSolverPos_recursive
+
+Motivation:
+• Demonstrates use of industry-standard kinematics libraries.
+• Provides numerical validation of analytic FK.
+• Allows future extension to 3D or more complex robots.
 
 Design considerations:
-• Both elbow-up (branch = -1) and elbow-down (+1) options supported.
-• Joint angles normalized to [-π, π].
-• Unreachable poses return std::nullopt instead of invalid angles.
-• Function is deterministic and stateless.
+• URDF frames must match analytic conventions.
+• A known sign mismatch in φ was handled in IK node.
+
+-----------------------------------------------
+4. Inverse Kinematics
+-----------------------------------------------
+Analytic IK adopts the classical geometric method:
+
+1. Compute wrist location:
+       xw = x - L3 cos φ
+       yw = y - L3 sin φ
+
+2. Solve 2-link IK using cosine law:
+       c2 = (r² - L1² - L2²)/(2 L1 L2)
+   with clamping to avoid numerical drift.
+
+3. Solve θ1 using two-atan2 geometric method.
+
+4. Compute θ3 from:
+       θ3 = φ - θ1 - θ2
+
+Important design features:
+• Full branch handling (+1 and -1).
+• Rigorous clamping of c2 ∈ [-1,1].
+• Rejects unreachable poses via std::nullopt.
+• Angle normalization to [-π, π].
 
 -----------------------------------------------
 5. ROS2 Package Structure
 -----------------------------------------------
-Two nodes created as required:
-• fk_node:
-    - Reads θ1, θ2, θ3 as parameters.
-    - Computes FK and publishes geometry_msgs/Pose2D.
-• ik_node:
+The package planar_kinematics contains:
+
+Nodes:
+• fk_node
+    - Loads parameters from YAML config file.
+    - Selects FK mode: "analytic" or "kdl".
+    - Computes Pose2D and logs result.
+
+• ik_node
     - Subscribes to Pose2D.
-    - Runs IK and prints resulting joint angles.
+    - Runs analytic IK.
+    - Attempts both branches before declaring unreachable.
 
-A launch file starts both nodes and accepts θ1–θ3 as arguments.
+URDF Support:
+• URDF stored in share/planar_kinematics/urdf.
+• Loaded by KDL FK solver.
 
------------------------------------------------
-6. Unit Testing
------------------------------------------------
-GoogleTest used (bonus requirement from PDF page 2).
-Test strategy:
-• Validate that FK → IK → FK reproduces the same pose.
-• Test both kinematic branches (+1, -1).
-• Use robust angle-difference comparison to handle wrapping.
+Configuration:
+• A YAML config file fk_params.yaml controls:
+    - Link lengths
+    - FK mode selection
+    - URDF path
 
-Reason:
-Analytic IK may not return the exact original joint angles,
-but must reproduce the *same* end-effector pose.
-
------------------------------------------------
-7. Code Quality & Maintainability
------------------------------------------------
-• All public functions documented.
-• Class design is minimal and reusable.
-• Clear separation of computation (Planar3R) and ROS2 nodes.
-• Strong input validation and numerical stability.
-• No global variables or namespaces.
+Launch File:
+• kinematics_launch.py loads FK/IK nodes with config.
 
 -----------------------------------------------
-8. Potential Extensions (Not required)
+6. Configuration File Integration
 -----------------------------------------------
-• Numerical IK (Newton/L-M) for redundant or singular cases.
-• URDF and Pinocchio-based FK/IK for bonus marks.
-• RViz visualization.
+A new configuration structure was added:
+
+fk_params.yaml:
+    fk_mode: "analytic" or "kdl"
+    link_lengths: {L1: 0.3, L2: 0.3, L3: 0.1}
+    urdf_path: ".../planar3r.urdf"
+
+Design choices:
+• Users can switch FK modes without editing code.
+• Allows robot geometry to be changed externally.
+• Improves maintainability and ROS2 best practices compliance.
+
+-----------------------------------------------
+7. Unit Testing (Expanded)
+-----------------------------------------------
+GoogleTest-based unit tests were significantly expanded.
+
+7.1 Tests for Analytic FK
+• Evaluates FK on multiple joint combinations.
+• Compares against manually computed expected values.
+
+7.2 Tests for Kinematic Model Properties
+• FK continuity: small δθ produces small δx, δy.
+• th1 monotonic behavior (CCW rotation).
+• Correct finite-difference behavior for th3.
+• Correct link contribution linearity.
+
+7.3 IK Round-Trip Consistency
+• For random joint sets:
+    FK → IK → FK must reproduce the SAME POSE.
+• Robust angle-difference logic for periodicity.
+• branch selection fully tested.
+
+Rationale:
+• Ensures all equations are correct.
+• Protects against regressions.
+• Validates numerical stability.
+
+-----------------------------------------------
+8. Code Quality & Maintainability
+-----------------------------------------------
+• Separation of concerns:
+    - Planar3R handles analytic math.
+    - KDL_FK handles KDL + URDF integration.
+    - Nodes handle ROS interaction only.
+• Strict error handling:
+    - std::optional for IK
+    - Meaningful logging for failures
+• Clean class interfaces.
+• No mutable global state.
+• Testable pure functions.
+
+-----------------------------------------------
+9. Potential Extensions
+-----------------------------------------------
+• Add KDL-based IK (ChainIkSolverpos_NR).
+• Jacobian computation & manipulability metrics.
+• MoveIt! integration with RViz visualization.
+• Dynamic modeling (KDL inertia chain).
+• Numerical IK using Levenberg–Marquardt.
 
 -----------------------------------------------
 END OF FILE

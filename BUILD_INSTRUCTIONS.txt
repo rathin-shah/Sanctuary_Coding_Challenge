@@ -5,10 +5,8 @@ Build Instructions (Linux) — planar_kinematics ROS2 Package
 This package implements the planar 3-link RRR manipulator 
 (Task 1–3) and ROS2 nodes (publisher + subscriber) required 
 by the take-home challenge.
-
 These instructions assume Ubuntu 20.04+ or 22.04+ and ROS2 Humble.
 All commands are valid for bash.
-
 -----------------------------------------------------------
 1. Dependencies
 -----------------------------------------------------------
@@ -34,7 +32,8 @@ Install using apt:
       liborocos-kdl-dev \
       ros-humble-kdl-parser \
       ros-humble-urdf \
-      ros-humble-urdfdom
+      ros-humble-urdfdom \
+      libeigen3-dev \
       googletest
 
 -----------------------------------------------------------
@@ -67,19 +66,33 @@ If successful, source the workspace:
 4. Run the Nodes
 -----------------------------------------------------------
 
-Forward kinematics publisher:
+The FK node can be run in **'analytical'** (core requirement) or **'kdl'** (KDL-based, bonus) mode.
 
-  ros2 run planar_kinematics fk_node \
-       --ros-args -p th1:=0.5 -p th2:=-0.2 -p th3:=0.3
+**A. Running FK/IK using direct parameters:**
 
-Inverse kinematics subscriber:
+Forward Kinematics publisher:
+# Use --ros-args -p to override the parameters directly.
+# Example using 'analytical' mode and specific angles:
+ros2 run planar_kinematics fk_node \
+     --ros-args -p th1:=0.5 -p th2:=-0.2 -p th3:=0.3 \
+     -p fk_mode:="analytical"
 
-  ros2 run planar_kinematics ik_node
+Inverse Kinematics subscriber:
+ros2 run planar_kinematics ik_node
 
-Alternatively, launch both using the provided launch file:
+**B. Running FK/IK using the Launch File:**
+
+The launch file loads parameters from the default config file (`config/fk_params.yaml`).
+The default mode is **'kdl'**, and default angles are **th1=0.5, th2=0.5, th3=0.3**.
+
+  ros2 launch planar_kinematics kinematics_launch.py
+
+**C. Specifying a Custom Config File:**
+
+You can override the default config file path using the `config` launch argument:
 
   ros2 launch planar_kinematics kinematics_launch.py \
-       th1:=0.5 th2:=-0.2 th3:=0.3
+       config:=/path/to/your/custom_params.yaml
 
 -----------------------------------------------------------
 5. Running Tests
@@ -92,30 +105,52 @@ To run GoogleTests:
 
 The test suite validates the analytic IK by performing 
 FK → IK → FK consistency checks over several configurations.
-
 -----------------------------------------------------------
-6. File Structure
+6. Config File Details
+-----------------------------------------------------------
+The default configuration file is located at `config/fk_params.yaml`.
+
+**Default Content (`config/fk_params.yaml`)**:
+```yaml
+fk_node:
+  ros__parameters:
+    # Select FK method: "analytical" or "kdl"
+    fk_mode: "kdl"
+
+    # URDF path (only needed for kdl mode)
+    urdf_path: "/colcon_ws/install/planar_kinematics/share/planar_kinematics/urdf/planar3r.urdf"
+
+    # Joint angles (default)
+    th1: 0.5
+    th2: 0.5
+    th3: 0.3
+
+    # Link lengths for analytical mode
+    L1: 0.3
+    L2: 0.3
+    L3: 0.1
+-----------------------------------------------------------
+7. File Structure
 -----------------------------------------------------------
 
 planar_kinematics/
     CMakeLists.txt
     package.xml
     include/planar_kinematics/Planar3R.hpp
+    include/planar_kinematics/KDL_FK.hpp
     src/fk_node.cpp
     src/ik_node.cpp
+    config/fk_params.yaml
     launch/kinematics_launch.py
+    urdf/planar3r.urdf
     test/test_planar3r.cpp
 
 -----------------------------------------------------------
-7. Notes
+8. Notes
 -----------------------------------------------------------
 
 • The entire package is written in modern, object-oriented C++.
-• No external kinematics libraries are used for Tasks 1–3.
-• Only standard ROS2 libraries are used.
 • The workspace must be sourced in every new shell.
-• The analytic IK supports both branches (elbow-up/down).
-
 -----------------------------------------------------------
 END OF FILE
 -----------------------------------------------------------
