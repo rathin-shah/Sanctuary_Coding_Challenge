@@ -1,0 +1,132 @@
+<?xml version="1.0"?>
+<robot name="planar3r">
+
+  <!-- Base link at origin -->
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 0"/>
+      <mass value="1.0"/>
+      <inertia ixx="1e-3" ixy="0" ixz="0"
+               iyy="1e-3" iyz="0"
+               izz="1e-3"/>
+    </inertial>
+  </link>
+
+  <!-- Link 1: length L1 along +X -->
+  <link name="link1">
+    <inertial>
+      <origin xyz="0.15 0 0"/> <!-- center at L1/2 = 0.15 -->
+      <mass value="1.0"/>
+      <inertia ixx="1e-2" ixy="0" ixz="0"
+               iyy="1e-2" iyz="0"
+               izz="1e-2"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.15 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.3 0.02 0.02"/> <!-- L1 = 0.3 -->
+      </geometry>
+      <material name="gray">
+        <color rgba="0.6 0.6 0.6 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.15 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.3 0.02 0.02"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- Link 2: length L2 along +X from link1 tip -->
+  <link name="link2">
+    <inertial>
+      <origin xyz="0.15 0 0"/>
+      <mass value="1.0"/>
+      <inertia ixx="1e-2" ixy="0" ixz="0"
+               iyy="1e-2" iyz="0"
+               izz="1e-2"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.15 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.3 0.02 0.02"/> <!-- L2 = 0.3 -->
+      </geometry>
+      <material name="blue">
+        <color rgba="0.2 0.2 0.8 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.15 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.3 0.02 0.02"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- Link 3: length L3 along +X from link2 tip -->
+  <link name="link3">
+    <inertial>
+      <origin xyz="0.05 0 0"/> <!-- L3/2 = 0.05 -->
+      <mass value="0.5"/>
+      <inertia ixx="5e-3" ixy="0" ixz="0"
+               iyy="5e-3" iyz="0"
+               izz="5e-3"/>
+    </inertial>
+    <visual>
+      <origin xyz="0.05 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.1 0.02 0.02"/> <!-- L3 = 0.1 -->
+      </geometry>
+      <material name="green">
+        <color rgba="0.2 0.8 0.2 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.05 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.1 0.02 0.02"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- End-effector "tool" frame at link3 tip -->
+  <link name="ee_link" />
+
+  <!-- Joints: all revolute about Z (planar) -->
+
+  <joint name="joint1" type="revolute">
+    <parent link="base_link"/>
+    <child link="link1"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-3.14159" upper="3.14159"
+           effort="10.0" velocity="10.0"/>
+  </joint>
+
+  <joint name="joint2" type="revolute">
+    <parent link="link1"/>
+    <child link="link2"/>
+    <origin xyz="0.3 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-3.14159" upper="3.14159"
+           effort="10.0" velocity="10.0"/>
+  </joint>
+
+  <joint name="joint3" type="revolute">
+    <parent link="link2"/>
+    <child link="link3"/>
+    <origin xyz="0.3 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-3.14159" upper="3.14159"
+           effort="10.0" velocity="10.0"/>
+  </joint>
+
+  <!-- Fixed joint from link3 tip to end-effector frame -->
+  <joint name="joint_ee" type="fixed">
+    <parent link="link3"/>
+    <child link="ee_link"/>
+    <origin xyz="0.1 0 0" rpy="0 0 0"/> <!-- at link3 tip -->
+  </joint>
+
+</robot>

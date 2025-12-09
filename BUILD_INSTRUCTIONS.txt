@@ -1,0 +1,121 @@
+===========================================================
+Build Instructions (Linux) — planar_kinematics ROS2 Package
+===========================================================
+
+This package implements the planar 3-link RRR manipulator 
+(Task 1–3) and ROS2 nodes (publisher + subscriber) required 
+by the take-home challenge.
+
+These instructions assume Ubuntu 20.04+ or 22.04+ and ROS2 Humble.
+All commands are valid for bash.
+
+-----------------------------------------------------------
+1. Dependencies
+-----------------------------------------------------------
+
+Required system packages:
+  • g++ (C++17 or newer)
+  • CMake ≥ 3.5
+  • Python3
+  • colcon-core, colcon-common-extensions
+  • ROS2 Humble (or later)
+
+Install using apt:
+
+  sudo apt update
+  sudo apt install -y \
+      build-essential \
+      cmake \
+      python3-colcon-common-extensions \
+      ros-humble-rclcpp \
+      ros-humble-geometry-msgs \
+      ros-humble-ament-cmake \
+      ros-humble-ament-cmake-gtest \
+      liborocos-kdl-dev \
+      ros-humble-kdl-parser \
+      ros-humble-urdf \
+      ros-humble-urdfdom
+      googletest
+
+-----------------------------------------------------------
+2. Workspace Setup
+-----------------------------------------------------------
+
+Create a clean ROS2 workspace:
+
+  mkdir -p ~/ros2_ws/src
+  cd ~/ros2_ws/src
+
+Clone or copy the package folder into src:
+
+  cp -r planar_kinematics ~/ros2_ws/src/
+
+-----------------------------------------------------------
+3. Build the Package
+-----------------------------------------------------------
+
+From workspace root:
+
+  cd ~/ros2_ws
+  colcon build --packages-select planar_kinematics
+
+If successful, source the workspace:
+
+  source install/setup.bash
+
+-----------------------------------------------------------
+4. Run the Nodes
+-----------------------------------------------------------
+
+Forward kinematics publisher:
+
+  ros2 run planar_kinematics fk_node \
+       --ros-args -p th1:=0.5 -p th2:=-0.2 -p th3:=0.3
+
+Inverse kinematics subscriber:
+
+  ros2 run planar_kinematics ik_node
+
+Alternatively, launch both using the provided launch file:
+
+  ros2 launch planar_kinematics kinematics_launch.py \
+       th1:=0.5 th2:=-0.2 th3:=0.3
+
+-----------------------------------------------------------
+5. Running Tests
+-----------------------------------------------------------
+
+To run GoogleTests:
+
+  colcon test --packages-select planar_kinematics
+  colcon test-result --verbose
+
+The test suite validates the analytic IK by performing 
+FK → IK → FK consistency checks over several configurations.
+
+-----------------------------------------------------------
+6. File Structure
+-----------------------------------------------------------
+
+planar_kinematics/
+    CMakeLists.txt
+    package.xml
+    include/planar_kinematics/Planar3R.hpp
+    src/fk_node.cpp
+    src/ik_node.cpp
+    launch/kinematics_launch.py
+    test/test_planar3r.cpp
+
+-----------------------------------------------------------
+7. Notes
+-----------------------------------------------------------
+
+• The entire package is written in modern, object-oriented C++.
+• No external kinematics libraries are used for Tasks 1–3.
+• Only standard ROS2 libraries are used.
+• The workspace must be sourced in every new shell.
+• The analytic IK supports both branches (elbow-up/down).
+
+-----------------------------------------------------------
+END OF FILE
+-----------------------------------------------------------

@@ -1,0 +1,104 @@
+===============================================
+Design Notes for Planar 3R Kinematics Solution
+===============================================
+
+This file summarizes the design process, assumptions, 
+considerations, and choices made while implementing 
+the planar 3-link manipulator tasks.
+
+-----------------------------------------------
+1. Assumptions
+-----------------------------------------------
+• The robot is a 3-link planar RRR manipulator (PDF page 3).
+• All joints rotate about the z-axis (2D planar model).
+• Link lengths L1, L2, L3 default to 0.3, 0.3, 0.1 m.
+• No joint limits were specified; IK returns any feasible solution.
+• Only analytic kinematics (no external libraries) were required.
+
+-----------------------------------------------
+2. Object-Oriented Model
+-----------------------------------------------
+To satisfy Task 1, a single class `Planar3R` was created:
+• Stores link lengths (modifiable at runtime).
+• Provides FK function returning (x, y, phi).
+• Provides analytic IK based on geometric/wrist reduction method.
+• Encapsulates angle normalization and branch handling.
+
+The class is header-only for portability and simplicity.
+
+-----------------------------------------------
+3. Forward Kinematics (Task 2)
+-----------------------------------------------
+FK is implemented using:
+  x = L1 cos θ1 + L2 cos(θ1+θ2) + L3 cos(θ1+θ2+θ3)
+  y = L1 sin θ1 + L2 sin(θ1+θ2) + L3 sin(θ1+θ2+θ3)
+  φ = θ1 + θ2 + θ3
+
+Chosen because:
+• Closed-form, minimal computation
+• No dependencies, easy to unit test
+• Matches planar kinematic chain from PDF (page 3)
+
+-----------------------------------------------
+4. Analytic Inverse Kinematics (Task 3)
+-----------------------------------------------
+IK is implemented using:
+• Wrist position reduction:
+      xw = x - L3 cos φ
+      yw = y - L3 sin φ
+• Two-link IK using cosine law:
+      cosθ2 = (r² - L1² - L2²)/(2L1L2)
+• atan2-based solution for θ1 via geometric approach
+• θ3 retrieved from φ - θ1 - θ2
+
+Design considerations:
+• Both elbow-up (branch = -1) and elbow-down (+1) options supported.
+• Joint angles normalized to [-π, π].
+• Unreachable poses return std::nullopt instead of invalid angles.
+• Function is deterministic and stateless.
+
+-----------------------------------------------
+5. ROS2 Package Structure
+-----------------------------------------------
+Two nodes created as required:
+• fk_node:
+    - Reads θ1, θ2, θ3 as parameters.
+    - Computes FK and publishes geometry_msgs/Pose2D.
+• ik_node:
+    - Subscribes to Pose2D.
+    - Runs IK and prints resulting joint angles.
+
+A launch file starts both nodes and accepts θ1–θ3 as arguments.
+
+-----------------------------------------------
+6. Unit Testing
+-----------------------------------------------
+GoogleTest used (bonus requirement from PDF page 2).
+Test strategy:
+• Validate that FK → IK → FK reproduces the same pose.
+• Test both kinematic branches (+1, -1).
+• Use robust angle-difference comparison to handle wrapping.
+
+Reason:
+Analytic IK may not return the exact original joint angles,
+but must reproduce the *same* end-effector pose.
+
+-----------------------------------------------
+7. Code Quality & Maintainability
+-----------------------------------------------
+• All public functions documented.
+• Class design is minimal and reusable.
+• Clear separation of computation (Planar3R) and ROS2 nodes.
+• Strong input validation and numerical stability.
+• No global variables or namespaces.
+
+-----------------------------------------------
+8. Potential Extensions (Not required)
+-----------------------------------------------
+• Numerical IK (Newton/L-M) for redundant or singular cases.
+• URDF and Pinocchio-based FK/IK for bonus marks.
+• RViz visualization.
+
+-----------------------------------------------
+END OF FILE
+-----------------------------------------------

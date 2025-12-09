@@ -1,0 +1,19 @@
+fk_node:
+  ros__parameters:
+
+    # Select FK method: "analytical" or "kdl"
+    fk_mode: "kdl"
+
+    # URDF path (only needed for kdl mode)
+    urdf_path: "/colcon_ws/install/planar_kinematics/share/planar_kinematics/urdf/planar3r.urdf"
+
+
+    # Joint angles (default)
+    th1: 0.5
+    th2: 0.5
+    th3: 0.3
+
+    # Link lengths for analytical mode
+    L1: 0.3
+    L2: 0.3
+    L3: 0.1
